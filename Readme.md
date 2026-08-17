@@ -221,7 +221,7 @@ This makes the AI behave more like a **tutor** rather than simply a content gene
 
 ---
 
-# 🧠 Structured AI Output
+# Structured AI Output
 One of the important design decisions in StudyFlow is that the frontend does **not blindly trust the AI response**.
 
 The flow is:
@@ -258,7 +258,7 @@ This prevents malformed AI output from breaking the application.
 
 ---
 
-# ⚠️ AI Limitations
+# AI Limitations
 
 StudyFlow relies on an external generative AI model, so the following limitations apply.
 
@@ -310,7 +310,7 @@ Approximate development time: 8 hours
 ```
 ---
 
-# ✨Key Features
+# Key Features
 ### Study Generation
 * Custom topic
 * Difficulty selection
