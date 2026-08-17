@@ -13,7 +13,7 @@ router.post("/generate", async (req, res) => {
   try {
     const { topic, difficulty, flashcardCount, quizCount } = req.body;
 
-    console.log("REQUEST:", req.body);
+    // console.log("REQUEST:", req.body);
 
     if (!topic || !topic.trim()) {
       return res.status(400).json({
