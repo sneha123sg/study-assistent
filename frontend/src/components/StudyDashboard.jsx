@@ -1,4 +1,4 @@
-import { BookOpen, Target, Sparkles } from "lucide-react";
+import { BookOpen, Sparkles } from "lucide-react";
 
 import Flashcard from "./Flashcard";
 import Quiz from "./Quiz";
@@ -10,12 +10,16 @@ export default function StudyDashboard({
   retryQuestions,
   onRetryComplete,
 }) {
+  const isReviewing = retryQuestions && retryQuestions.length > 0;
+
+  const questionsToShow = isReviewing ? retryQuestions : studyPack.quiz;
+
   return (
     <div className="dashboard">
+
       <section className="study-header">
         <div>
-          <span className="eyebrow">YOUR AI STUDY PACK</span>
-
+          <br />
           <h1>{studyPack.topic}</h1>
 
           <p>{studyPack.summary}</p>
@@ -23,6 +27,7 @@ export default function StudyDashboard({
 
         <div className="difficulty-pill">
           <Sparkles size={14} />
+
           {studyPack.difficulty}
         </div>
       </section>
@@ -37,33 +42,39 @@ export default function StudyDashboard({
           {studyPack.keyPoints.map((point, index) => (
             <div key={index}>
               <span>{String(index + 1).padStart(2, "0")}</span>
+
               {point}
             </div>
           ))}
         </div>
       </section>
 
-      <Flashcard cards={studyPack.flashcards} />
+      {!isReviewing && <Flashcard cards={studyPack.flashcards} />}
 
-      {quizResult ? (
-        <div className="quiz-result-inline">
-          <Target size={22} />
+      {isReviewing && (
+        <div className="review-banner">
+          <Sparkles size={18} />
+
           <div>
-            <strong>
-              You scored {quizResult.score}/{quizResult.total}
-            </strong>
-            <span>Ready for another round? Review your mistakes below.</span>
+            <strong>Reviewing your mistakes</strong>
+
+            <span>Let's make these concepts stick.</span>
           </div>
         </div>
-      ) : null}
+      )}
 
       <Quiz
-        questions={retryQuestions?.length ? retryQuestions : studyPack.quiz}
-        retryOnly={Boolean(retryQuestions?.length)}
+        key={
+          isReviewing
+            ? `review-${retryQuestions.map((q) => q.id).join("-")}`
+            : "main-quiz"
+        }
+        questions={questionsToShow}
+        retryOnly={isReviewing}
         onComplete={(result) => {
           setQuizResult(result);
 
-          if (retryQuestions?.length) {
+          if (isReviewing) {
             onRetryComplete();
           }
         }}

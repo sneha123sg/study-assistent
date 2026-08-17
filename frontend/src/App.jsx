@@ -20,7 +20,12 @@ export default function App() {
   const [retryQuestions, setRetryQuestions] = useState([]);
   const abortControllerRef = useRef(null);
 
-  async function handleGenerate({ topic, difficulty }) {
+  async function handleGenerate({
+    topic,
+    difficulty,
+    flashcardCount,
+    quizCount,
+  }) {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -34,12 +39,16 @@ export default function App() {
     setLastRequest({
       topic,
       difficulty,
+      flashcardCount,
+      quizCount,
     });
 
     try {
       const data = await generateStudyPack({
         topic,
         difficulty,
+        flashcardCount,
+        quizCount,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -73,14 +82,23 @@ export default function App() {
     });
   }
 
-  function handleReviewMistakes() {
-    if (quizResult?.wrongQuestions?.length) {
-      setRetryQuestions(quizResult.wrongQuestions);
-      window.scrollTo({
-        top: 500,
-        behavior: "smooth",
-      });
+  function handleReviewMistakes(wrongQuestions) {
+    if (!wrongQuestions || wrongQuestions.length === 0) {
+      return;
     }
+
+    setRetryQuestions(wrongQuestions);
+
+    setQuizResult(null);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function handleRetryComplete() {
+    setRetryQuestions([]);
   }
 
   return (
@@ -110,7 +128,7 @@ export default function App() {
               onRetryComplete={() => setRetryQuestions([])}
             />
 
-            {quizResult && (
+            {quizResult && !retryQuestions.length && (
               <Results
                 result={quizResult}
                 onRetry={handleReviewMistakes}
@@ -128,6 +146,7 @@ export default function App() {
       <footer>
         <div>
           <strong>Your-Study-Assistent</strong>
+          <br />
           <span>Built for active learning with AI.</span>
         </div>
       </footer>

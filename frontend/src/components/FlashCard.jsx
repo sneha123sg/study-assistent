@@ -9,13 +9,11 @@ export default function Flashcard({ cards }) {
 
   function nextCard() {
     setFlipped(false);
-
     setCurrent((prev) => (prev === cards.length - 1 ? 0 : prev + 1));
   }
 
   function previousCard() {
     setFlipped(false);
-
     setCurrent((prev) => (prev === 0 ? cards.length - 1 : prev - 1));
   }
 
@@ -23,7 +21,6 @@ export default function Flashcard({ cards }) {
     <section className="flashcard-section">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">LEARN</span>
           <h2>Flashcards</h2>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Send, Lightbulb } from "lucide-react";
+import { Sparkles, Send, Lightbulb, Layers, CircleHelp } from "lucide-react";
 
 const suggestions = [
   "Binary trees for coding interviews",
@@ -12,14 +12,17 @@ export default function TopicForm({ onGenerate, loading }) {
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("interview");
 
+  const [flashcardCount, setFlashcardCount] = useState(6);
+  const [quizCount, setQuizCount] = useState(6);
+
   function handleSubmit(e) {
     e.preventDefault();
-
     if (!topic.trim() || loading) return;
-
     onGenerate({
       topic: topic.trim(),
       difficulty,
+      flashcardCount,
+      quizCount,
     });
   }
 
@@ -76,7 +79,37 @@ export default function TopicForm({ onGenerate, loading }) {
               ))}
             </div>
           </div>
+        </div>
 
+        <div className="count-controls">
+          <div className="count-control">
+            <label>Flashcards</label>
+
+            <input
+              type="number"
+              min="3"
+              max="10"
+              value={flashcardCount}
+              onChange={(e) => setFlashcardCount(Number(e.target.value))}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="count-control">
+            <label>Quiz Questions</label>
+
+            <input
+              type="number"
+              min="3"
+              max="10"
+              value={quizCount}
+              onChange={(e) => setQuizCount(Number(e.target.value))}
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        <div className="generator-submit-row">
           <button
             className="generate-btn"
             type="submit"

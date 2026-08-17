@@ -1,42 +1,70 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Loader2 } from "lucide-react";
+
+import { elaborateQuizExplanation } from "../services/api";
 
 export default function Quiz({ questions, onComplete, retryOnly = false }) {
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
+
   const [score, setScore] = useState(0);
   const [wrongQuestions, setWrongQuestions] = useState([]);
 
-  const question = questions[current];
-  const [elaboration, setElaboration] = useState("");
-  const [loadingElaboration, setLoadingElaboration] = useState(false);
+  const [elaborating, setElaborating] = useState(false);
+
+  const [detailedExplanation, setDetailedExplanation] = useState(null);
+
   useEffect(() => {
     setCurrent(0);
     setSelected(null);
     setAnswered(false);
     setScore(0);
     setWrongQuestions([]);
+    setElaborating(false);
+    setDetailedExplanation("");
   }, [questions]);
 
+  if (!questions || questions.length === 0) {
+    return (
+      <section className="quiz-section">
+        <div className="quiz-card">
+          <p>No quiz questions available.</p>
+        </div>
+      </section>
+    );
+  }
+
+  const question = questions[current];
+
+  function handleSelect(index) {
+    if (answered) return;
+
+    setSelected(index);
+  }
+
   function submitAnswer() {
-    if (selected === null || answered) return;
+    if (selected === null || answered) {
+      return;
+    }
 
     setAnswered(true);
-
-    if (selected === question.correctAnswer) {
-      setScore((prev) => prev + 1);
-    } else {
-      setWrongQuestions((prev) => [...prev, question]);
-    }
   }
 
   function nextQuestion() {
+    const isCorrect = selected === question.correctAnswer;
+
+    const finalScore = score + (isCorrect ? 1 : 0);
+
+    const finalWrongQuestions = isCorrect
+      ? wrongQuestions
+      : [...wrongQuestions, question];
+
     if (current === questions.length - 1) {
       onComplete({
-        score: score + (selected === question.correctAnswer ? 1 : 0),
+        score: finalScore,
         total: questions.length,
-        wrongQuestions,
+        wrongQuestions: finalWrongQuestions,
       });
 
       return;
@@ -45,58 +73,60 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
     setCurrent((prev) => prev + 1);
     setSelected(null);
     setAnswered(false);
+    setElaborating(false);
+    setDetailedExplanation("");
+    setScore(finalScore);
+    setWrongQuestions(finalWrongQuestions);
   }
 
   async function handleElaborate() {
+    if (elaborating) return;
+
     try {
-      setLoadingElaboration(true);
-      setElaboration("");
+      setElaborating(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/study/elaborate",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            topic,
-            question: question.question,
-            options: question.options,
-            answer: question.options[question.correctAnswer],
-          }),
-        },
-      );
+      const detailed = await elaborateQuizExplanation({
+        question: question.question,
+        options: question.options,
+        correctAnswer: question.correctAnswer,
+        explanation: question.explanation,
+      });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to elaborate.");
-      }
-
-      setElaboration(result.data.explanation);
+      setDetailedExplanation(detailed);
     } catch (error) {
-      console.error(error);
-      setElaboration(
-        "Sorry, I couldn't generate an explanation right now. Please try again.",
-      );
+      console.error("Elaborate error:", error);
+
+      setDetailedExplanation({
+        concept: "Unable to elaborate",
+        simpleExplanation:
+          "Something went wrong while generating the detailed explanation.",
+        whyCorrect: "",
+        whyOthersWrong: [],
+        example: "",
+        takeaway: "Please click Elaborate again.",
+      });
     } finally {
-      setLoadingElaboration(false);
+      setElaborating(false);
     }
   }
 
+  const isCorrect = selected === question.correctAnswer;
+
   return (
     <section className="quiz-section">
+
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{retryOnly ? "REVIEW" : "PRACTICE"}</span>
+          <span className="eyebrow">
+            {retryOnly ? "REVIEW MISTAKES" : "PRACTICE"}
+          </span>
 
           <h2>{retryOnly ? "Let's fix those mistakes." : "Test yourself"}</h2>
         </div>
 
         <div className="quiz-progress">
           <span>
-            {current + 1}/{questions.length}
+            {current + 1} / {questions.length}
           </span>
 
           <div>
@@ -127,16 +157,20 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
             if (answered) {
               if (index === question.correctAnswer) {
                 className += " correct";
-              } else if (selected === index) {
+              }
+
+              if (index === selected && index !== question.correctAnswer) {
                 className += " incorrect";
               }
             }
 
             return (
               <button
-                key={option}
+                key={`${question.id}-${index}`}
+                type="button"
                 className={className}
-                onClick={() => !answered && setSelected(index)}
+                onClick={() => handleSelect(index)}
+                disabled={answered}
               >
                 <span className="option-letter">
                   {String.fromCharCode(65 + index)}
@@ -149,7 +183,7 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
                 )}
 
                 {answered &&
-                  selected === index &&
+                  index === selected &&
                   index !== question.correctAnswer && (
                     <XCircle className="option-result" />
                   )}
@@ -159,22 +193,90 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
         </div>
 
         {answered && (
-          <div
-            className={`explanation ${
-              selected === question.correctAnswer ? "success" : "failure"
-            }`}
-          >
-            {selected === question.correctAnswer
-              ? "✓ Correct!"
-              : "✗ Not quite."}
+          <div className={`explanation ${isCorrect ? "success" : "failure"}`}>
 
-            <p>{question.explanation}</p>
+            <div className="explanation-header">
+              <strong>
+                {isCorrect ? "✓ Correct answer" : "✗ Incorrect answer"}
+              </strong>
+            </div>
+
+            {!detailedExplanation && (
+              <div className="normal-explanation">
+                <div className="explanation-section-title">Explanation</div>
+
+                <p>{question.explanation}</p>
+              </div>
+            )}
+
+            {detailedExplanation && (
+              <div className="structured-elaboration">
+                <div className="elaboration-block">
+                  <div className="elaboration-title">🧠 Concept</div>
+                  <p>{detailedExplanation.concept}</p>
+                </div>
+
+                <div className="elaboration-block">
+                  <div className="elaboration-title">📖 In simple words</div>
+
+                  <p>{detailedExplanation.simpleExplanation}</p>
+                </div>
+
+                <div className="elaboration-block correct-block">
+                  <div className="elaboration-title">
+                    ✓ Why this answer is correct
+                  </div>
+
+                  <p>{detailedExplanation.whyCorrect}</p>
+                </div>
+
+                {detailedExplanation.whyOthersWrong?.length > 0 && (
+                  <div className="elaboration-block">
+                    <div className="elaboration-title">
+                      ✕ Why the other options are wrong
+                    </div>
+
+                    <div className="wrong-options">
+                      {detailedExplanation.whyOthersWrong.map((item, index) => (
+                        <div key={index} className="wrong-option">
+                          <span>{String.fromCharCode(65 + index)}</span>
+
+                          <p>{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="elaboration-block example-block">
+                  <div className="elaboration-title">💡 Example</div>
+                  <p>{detailedExplanation.example}</p>
+                </div>
+
+                <div className="takeaway-block">
+                  <div className="elaboration-title">🎯 Remember this</div>
+                  <p>{detailedExplanation.takeaway}</p>
+                </div>
+              </div>
+            )}
+
+            {!detailedExplanation && (
+              <button
+                type="button"
+                className="elaborate-btn"
+                onClick={handleElaborate}
+                disabled={elaborating}
+              >
+                {elaborating ? "✨ Generating..." : "✨ Elaborate"}
+              </button>
+            )}
           </div>
         )}
 
         <div className="quiz-actions">
           {!answered ? (
             <button
+              type="button"
               className="submit-answer"
               onClick={submitAnswer}
               disabled={selected === null}
@@ -182,7 +284,11 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
               Check answer
             </button>
           ) : (
-            <button className="submit-answer" onClick={nextQuestion}>
+            <button
+              type="button"
+              className="submit-answer"
+              onClick={nextQuestion}
+            >
               {current === questions.length - 1
                 ? "See results"
                 : "Next question"}
@@ -191,5 +297,32 @@ export default function Quiz({ questions, onComplete, retryOnly = false }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function ExplanationText({ text }) {
+  if (!text) return null;
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="formatted-explanation">
+      {lines.map((line, index) => {
+        const isBullet =
+          line.startsWith("-") || line.startsWith("•") || /^\d+\./.test(line);
+
+        if (isBullet) {
+          return (
+            <div key={index} className="explanation-point">
+              {line}
+            </div>
+          );
+        }
+
+        return <p key={index}>{line}</p>;
+      })}
+    </div>
   );
 }
